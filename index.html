@@ -1,0 +1,336 @@
+import React, { useState, useRef, useEffect } from 'react';
+
+const DocumentExtractor = () => {
+  const [image, setImage] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState([]);
+  const [isCopied, setIsCopied] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
+  
+  const fileInputRef = useRef(null);
+  const dropAreaRef = useRef(null);
+  
+  // 드래그 앤 드롭 이벤트 처리
+  useEffect(() => {
+    const dropArea = dropAreaRef.current;
+    
+    const handleDragOver = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+    };
+    
+    const handleDragLeave = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+    };
+    
+    const handleDrop = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && files[0].type.match('image.*')) {
+        handleImageUpload(files[0]);
+      }
+    };
+    
+    if (dropArea) {
+      dropArea.addEventListener('dragover', handleDragOver);
+      dropArea.addEventListener('dragleave', handleDragLeave);
+      dropArea.addEventListener('drop', handleDrop);
+      
+      return () => {
+        dropArea.removeEventListener('dragover', handleDragOver);
+        dropArea.removeEventListener('dragleave', handleDragLeave);
+        dropArea.removeEventListener('drop', handleDrop);
+      };
+    }
+  }, []);
+  
+  // 클립보드 붙여넣기 처리
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const items = (e.clipboardData || window.clipboardData).items;
+      
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          handleImageUpload(blob);
+          break;
+        }
+      }
+    };
+    
+    document.addEventListener('paste', handlePaste);
+    
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, []);
+  
+  // 이미지 업로드 처리
+  const handleImageUpload = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImage(e.target.result);
+      processImage(file);
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  // 파일 입력 처리
+  const handleFileInput = (e) => {
+    if (e.target.files.length > 0) {
+      handleImageUpload(e.target.files[0]);
+    }
+  };
+  
+  // 이미지 처리 (OCR 처리 시뮬레이션)
+  const processImage = (file) => {
+    setIsProcessing(true);
+    setProcessingStatus('이미지 분석 중...');
+    setProgress(0);
+    
+    // OCR 처리 시뮬레이션
+    const totalSteps = 5;
+    let currentStep = 0;
+    
+    const processStep = () => {
+      currentStep++;
+      const statusMessages = [
+        '이미지 최적화 중...',
+        'OCR 엔진 준비 중...',
+        '텍스트 인식 중...',
+        '문서 구조 분석 중...',
+        '정보 추출 완료!'
+      ];
+      
+      setProcessingStatus(statusMessages[currentStep - 1]);
+      setProgress(Math.round((currentStep / totalSteps) * 100));
+      
+      if (currentStep < totalSteps) {
+        setTimeout(processStep, 800);
+      } else {
+        // 처리 완료 시 결과 설정
+        const sampleResults = [
+          '중등특수교육과-8169(2025.4.9.) 「2025학년도 특수교원이 기획하는 현장 기획 연수 선정 결과 안내」',
+          '중등특수교육과-8121(2025.4.8.) 「2025년도 현장 기획 연수 선정 심사 결과 보고」'
+        ];
+        
+        setResults(sampleResults);
+        setIsProcessing(false);
+      }
+    };
+    
+    setTimeout(processStep, 500);
+  };
+  
+  // 실제 이미지 데모 표시
+  const showDemoExample = () => {
+    setShowDemo(true);
+    setImage('/api/placeholder/800/400');
+    
+    // 데모 모드에서의 OCR 처리 시뮬레이션
+    setIsProcessing(true);
+    setProcessingStatus('에듀파인 공문서 테이블 분석 중...');
+    setProgress(0);
+    
+    // 진행 과정 시뮬레이션
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 5;
+      setProgress(progress);
+      
+      if (progress <= 20) {
+        setProcessingStatus('이미지 최적화 중...');
+      } else if (progress <= 40) {
+        setProcessingStatus('OCR 엔진 준비 중...');
+      } else if (progress <= 70) {
+        setProcessingStatus('텍스트 인식 중...');
+      } else if (progress <= 90) {
+        setProcessingStatus('공문서 정보 추출 중...');
+      } else {
+        setProcessingStatus('정보 추출 완료!');
+      }
+      
+      if (progress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          const sampleResults = [
+            '중등특수교육과-8169(2025.4.9.) 「2025학년도 특수교원이 기획하는 현장 기획 연수 선정 결과 안내」',
+            '중등특수교육과-8121(2025.4.8.) 「2025년도 현장 기획 연수 선정 심사 결과 보고」'
+          ];
+          setResults(sampleResults);
+          setIsProcessing(false);
+        }, 500);
+      }
+    }, 100);
+  };
+  
+  // 결과 복사
+  const copyResults = () => {
+    if (results.length > 0) {
+      navigator.clipboard.writeText(results.join('\n'))
+        .then(() => {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        });
+    }
+  };
+  
+  // 초기화
+  const handleReset = () => {
+    setImage(null);
+    setResults([]);
+    setShowDemo(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  return (
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+      <h1 className="text-3xl font-bold text-blue-600 mb-4 pb-2 border-b border-gray-200 w-full text-center">
+        공문서 정보 추출 도구
+      </h1>
+      
+      {!image ? (
+        <div className="w-full">
+          <div 
+            ref={dropAreaRef}
+            className={`w-full border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors mb-6
+              ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:bg-gray-50'}`}
+            onClick={() => fileInputRef.current.click()}
+          >
+            <div className="flex flex-col items-center">
+              <svg className="w-16 h-16 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <p className="text-xl font-semibold text-blue-600 mb-2">이미지를 여기에 드래그하세요</p>
+              <p className="text-gray-500 mb-6">또는 클릭하여 파일을 선택하거나 <kbd className="px-2 py-1 bg-gray-100 rounded text-sm">Ctrl+V</kbd>로 붙여넣기</p>
+              <p className="text-sm text-gray-500 italic">에듀파인 문서등록대장, 내문서함 등의 문서 목록을 캡처하세요</p>
+            </div>
+          </div>
+          
+          <div className="flex justify-center">
+            <button 
+              onClick={showDemoExample}
+              className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              데모 보기
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full mb-6">
+          <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden mb-4">
+            <img
+              src={image}
+              alt="업로드된 이미지"
+              className="w-full h-full object-contain"
+            />
+            {showDemo && (
+              <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
+                <div className="text-center p-4">
+                  <p className="text-gray-700 mb-2">에듀파인 공문서 목록 이미지</p>
+                  <table className="border-collapse border border-gray-300 text-sm mx-auto">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border border-gray-300 p-2">문서번호</th>
+                        <th className="border border-gray-300 p-2">제목</th>
+                        <th className="border border-gray-300 p-2">결재완료일시</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-gray-300 p-2">중등특수교육과-8169</td>
+                        <td className="border border-gray-300 p-2">[안내/협조] 2025학년도 특수교원이 기획하는 현장 기획 연수 선정 결과 안내</td>
+                        <td className="border border-gray-300 p-2">2025-04-09 10:30</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-gray-300 p-2">중등특수교육과-8121</td>
+                        <td className="border border-gray-300 p-2">[보고] 2025년도 현장 기획 연수 선정 심사 결과 보고</td>
+                        <td className="border border-gray-300 p-2">2025-04-08 17:40</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-center space-x-4">
+            <button 
+              onClick={handleReset}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              새 이미지 업로드
+            </button>
+          </div>
+        </div>
+      )}
+      
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleFileInput}
+        className="hidden"
+      />
+      
+      {isProcessing && (
+        <div className="w-full py-6 flex flex-col items-center">
+          <div className="w-full max-w-md bg-gray-50 rounded-lg p-4 mb-4">
+            <div className="flex items-center mb-2">
+              <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mr-3"></div>
+              <p className="text-gray-700">{processingStatus}</p>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {results.length > 0 && !isProcessing && (
+        <div className="w-full mt-6">
+          <h2 className="text-xl font-semibold text-gray-700 mb-3">추출 결과:</h2>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-4">
+            {results.map((result, index) => (
+              <div key={index} className="mb-4 last:mb-0 p-3 bg-white rounded border border-gray-200 shadow-sm">
+                <p className="font-mono text-sm whitespace-normal break-words">{result}</p>
+              </div>
+            ))}
+          </div>
+          
+          <button 
+            onClick={copyResults}
+            className="w-full py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-lg font-medium"
+          >
+            {isCopied ? '복사 완료! ✓' : '결과 복사하기'}
+          </button>
+        </div>
+      )}
+      
+      <div className="flex items-center justify-center mt-8 text-center">
+        <svg className="w-4 h-4 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <p className="text-xs text-gray-500">
+          모든 처리는 브라우저에서 이루어지며 이미지는 서버에 저장되지 않습니다.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default DocumentExtractor;
